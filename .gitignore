@@ -35,3 +35,10 @@ hs_err_pid*
 .gradle
 build/
 
+scripts/output/*
+scripts/input.txt
+scripts/DUMP/*
+scripts/DUMP*
+scripts/*.log
+scripts/.*.txt.crc
+
