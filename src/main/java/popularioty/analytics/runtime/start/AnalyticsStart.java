@@ -1,4 +1,4 @@
-package popularioty.analytics.start;
+package popularioty.analytics.runtime.start;
 
 
 /**
