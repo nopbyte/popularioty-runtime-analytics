@@ -19,7 +19,6 @@ import org.mortbay.log.StdErrLog;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import popularioty.analytics.runtime.services.global.SearchInstanceBuilder;
 import popularioty.analytics.runtime.writable.RuntimeKey;
 import popularioty.analytics.runtime.writable.RuntimeVote;
 import popularioty.commons.exception.PopulariotyException;
