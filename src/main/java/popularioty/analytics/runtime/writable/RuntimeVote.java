@@ -10,6 +10,7 @@ import org.apache.hadoop.io.WritableComparable;
 
 public class RuntimeVote implements WritableComparable<RuntimeVote>{
 
+	
 	public static String SU_WEB_OBJECT= "SU_WO";
 	
 	public static String SU_EVENT = "SU_EVENT";
@@ -21,6 +22,14 @@ public class RuntimeVote implements WritableComparable<RuntimeVote>{
 	public static String SU_DISCARD_POLICY = "SU_DISCARD_POLICY";
 	
 	public static String SU_DISCARD_FILTER = "SU_DISCARD_FILTER";
+	
+	public static String SERVICE_ACTIVITY_OK = "SERVICE_ACTIVITY_OK";
+	
+	public static String SERVICE_ACTIVITY_WRONG = "SERVICE_ACTIVITY_WRONG";
+	
+	public static final String SERVICE_POPULARITY = "SERVICE_POPULARITY";
+
+	public static final String SU_READ_SUBSCRIPTION = "SU_READ_SUBSCRIPTION";
 
 	//Choose from the constants above...
 	private String typeOfVote;

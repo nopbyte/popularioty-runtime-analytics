@@ -11,8 +11,10 @@ import com.google.common.collect.ComparisonChain;
 public class RuntimeKey implements WritableComparable<RuntimeKey>{
 	
 	public static final String ENTITY_TYPE_WEB_OBJECT = "webobject";
+	public static final String ENTITY_TYPE_USER = "user";
 	public static String ENTITY_TYPE_SO_STREAM = "service_object_stream";
 	public static String ENTITY_TYPE_SERVICE = "service_instance";
+	public static String ENTITY_TYPE_UNKNOWN = "unknown";
 	
 	private String entityIdSource;
 	private String entityTypeSource;

@@ -1,106 +1,100 @@
 package popularioty.analytics.runtime.mappers;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.index.query.FilterBuilders;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.bucket.filter.Filter;
-import org.elasticsearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
-import org.elasticsearch.search.aggregations.bucket.terms.Terms;
-import org.mortbay.log.StdErrLog;
+
+import popularioty.analytics.runtime.start.HadoopJobs;
+import popularioty.analytics.runtime.writable.RuntimeKey;
+import popularioty.analytics.runtime.writable.RuntimeVote;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import popularioty.analytics.runtime.writable.RuntimeKey;
-import popularioty.analytics.runtime.writable.RuntimeVote;
-import popularioty.commons.exception.PopulariotyException;
-import popularioty.commons.services.searchengine.criteria.aggregation.AggregationCriteria;
-import popularioty.commons.services.searchengine.criteria.aggregation.AggregationCriteriaType;
-import popularioty.commons.services.searchengine.criteria.search.SearchCriteria;
-import popularioty.commons.services.searchengine.criteria.search.SearchCriteriaType;
-import popularioty.commons.services.searchengine.factory.SearchProvider;
-import popularioty.commons.services.searchengine.queries.Query;
-import popularioty.commons.services.searchengine.queries.QueryResponse;
-import popularioty.commons.services.searchengine.queries.QueryType;
-
 public class GenericEntityMapper  extends
 Mapper<LongWritable, Text, RuntimeKey, RuntimeVote>{
 
-	private Text status = new Text();
-	private final static IntWritable addOne = new IntWritable(1);
-	
-	private Map<String,Long> getCountOfDocumentsByTerm(Map<String,String> mustMatchCriteria, String term)
-	{
-		return null;	
-	}
-			
+
 	 
 	protected void map(LongWritable key, Text value, Context context)
 		      throws java.io.IOException, InterruptedException {
 			
 		
-		
+		 Configuration conf = context.getConfiguration();
+		 long since = conf.getLong("documents-since",HadoopJobs.DEFAULT_SINCE);
+		 long until = conf.getLong("documents-until",HadoopJobs.DEFAULT_UNTIL);
+		 
 		 ObjectMapper mapper = new ObjectMapper();
-		 String s = value.toString();
-		 s = s.substring(s.indexOf(",")+1,s.length());
-		 
-		 JsonNode runtime = mapper.readTree(s);
-		 //TODO filter by timestamp?
-		 
-		 JsonNode src = runtime.get("src");
-		 JsonNode dest = runtime.get("dest");
-		 RuntimeKey k = buildRuntimeKey(src,dest); 
-		 if(k.getEntityTypeSource().equals(RuntimeKey.ENTITY_TYPE_WEB_OBJECT))
-			 context.write(k, new RuntimeVote().setTypeOfVote(RuntimeVote.SU_WEB_OBJECT).setValue(1));
-		 if(k.getEntityTypeSource().equals(RuntimeKey.ENTITY_TYPE_SO_STREAM) && k.getEntityTypeDestination().equals(RuntimeKey.ENTITY_TYPE_SO_STREAM))
-			 emmitVotesSOtoSO(k,runtime, context);
-		//The mapper generates RuntimeVote according to the document (keep in mind in the future services are comming.. add an if for the SO check first)
-		//The reducer shall generate the SOEdge and populate it propperly
-		
-		
-		
-		
-		
-		
-		
-		
-		     /*SearchProvider search =  SearchInstanceBuilder.getInstance().getSearchProvider("search.properties");
-			 Map<String,String> map = new HashMap<String, String>();
-			 Query q = new Query(QueryType.AGGREGATIONS);
-			 q.addCriteria(new SearchCriteria<String>("doc.src.soid",  "1426859511066689111ae7e5e46dca7066ec2bc59b3b5", SearchCriteriaType.MUST_MATCH));
-			 Query internal = new Query(QueryType.AGGREGATIONS);
-			 internal.addCriteria(new AggregationCriteria<String>("couchbaseDocument.doc.dest.streamid",null,AggregationCriteriaType.TERMS));
-			 q.addSubQuery(internal);
-			 QueryResponse resp;
-			try {
-			
-				resp = search.execute(q, "");
-				System.out.println(resp.getMapResult());
+		 String s1 = value.toString();
+		 String s = s1.substring(s1.indexOf(",")+1,s1.length());
+		 try{
+				 JsonNode runtime = mapper.readTree(s);
+				 long date = runtime.get("date").asLong();
+				 if(since<=date && date<until)
+				 {
 				 
-			} catch (PopulariotyException e) {
+					 JsonNode contract = runtime.get("contract_compliance");//used by activity in services
+					 if(contract != null){
+						 JsonNode src = runtime.get("src");
+						 RuntimeKey k = buildRuntimeKey(src,src);
+						 emmitVoteForServiceActivity(k, contract.asBoolean(),runtime, context);
+					 }
+					 else{
+						 //System.out.println("Document processed == date found: "+date + " since: "+since+ " until: "+until);
+						 JsonNode src = runtime.get("src");
+						 JsonNode dest = runtime.get("dest");
+						 RuntimeKey k = buildRuntimeKey(src,dest); 
+						 if(k.getEntityTypeSource().equals(RuntimeKey.ENTITY_TYPE_WEB_OBJECT))
+							 context.write(k, new RuntimeVote().setTypeOfVote(RuntimeVote.SU_WEB_OBJECT).setValue(1));
+						 if(k.getEntityTypeSource().equals(RuntimeKey.ENTITY_TYPE_SO_STREAM) && k.getEntityTypeDestination().equals(RuntimeKey.ENTITY_TYPE_SO_STREAM))
+							 emmitVotesSOtoSO(k,runtime, context);
+						 if(k.getEntityTypeSource().equals(RuntimeKey.ENTITY_TYPE_SO_STREAM) && k.getEntityTypeDestination().equals(RuntimeKey.ENTITY_TYPE_USER))
+							 emmitVotesSOtoUser(k,runtime, context);
+						 if(k.getEntityTypeSource().equals(RuntimeKey.ENTITY_TYPE_SERVICE))
+							 emmitVotesPopularityServicetoService(k,runtime, context);
+					 }
+					 
+				 }
+				 /*else{
+					 System.out.println("dropped: date: "+date+" since: "+since+" last: "+until);
+				 }*/
 				
-				e.printStackTrace();
-			}
-			 
-		     //655209;1;796764372490213;804422938115889;6 is the Sample record format
-		     String[] line = value.toString().split(";");
-		     // If record is of SMS CDR
-		     if (Integer.parseInt(line[1]) == 1) {
-		       status.set(line[4]);
-		       context.write(status, addOne);
-		     }*/
+		 }catch(Exception e){
+			 //There may be ids follwed by an empty string... due to sqoop! :(
+			 System.err.println("problems parsing this line: "+s1);
+			 return;
+		 }
 		
-		  }
+		 //The mapper generates RuntimeVote according to the document (keep in mind in the future services are coming.. add an if for the SO check first)
+		 //The reducer shall generate the SOEdge and populate it propperly
+		
+     }
 
+    private void emmitVotesSOtoUser(RuntimeKey k, JsonNode runtime,
+		Context context) throws IOException, InterruptedException {
+		
+    	context.write(k, new RuntimeVote().setTypeOfVote(RuntimeVote.SU_READ_SUBSCRIPTION).setValue(1));
+		
+	}
 
+	private void emmitVotesPopularityServicetoService(RuntimeKey k, JsonNode runtime,
+			Context context) throws IOException, InterruptedException 
+	{
+    	 context.write(k, new RuntimeVote().setTypeOfVote(RuntimeVote.SERVICE_POPULARITY).setValue(1));
+	}
+
+    private void emmitVoteForServiceActivity(RuntimeKey k, boolean compliance, JsonNode runtime, Context context) throws IOException, InterruptedException
+    {
+    	if(compliance)
+    		context.write(k, new RuntimeVote().setTypeOfVote(RuntimeVote.SERVICE_ACTIVITY_OK).setValue(1));
+    	else
+    		context.write(k, new RuntimeVote().setTypeOfVote(RuntimeVote.SERVICE_ACTIVITY_WRONG).setValue(1));
+    }
 	private void emmitVotesSOtoSO(RuntimeKey k, JsonNode runtime, Context context) throws IOException, InterruptedException 
 	{
 		String discard = runtime.get("discard").asText();
@@ -111,7 +105,7 @@ Mapper<LongWritable, Text, RuntimeKey, RuntimeVote>{
 			if(runtime.get("event").asBoolean())
 				context.write(k, new RuntimeVote().setTypeOfVote(RuntimeVote.SU_EVENT).setValue(1));
 			else
-			context.write(k, new RuntimeVote().setTypeOfVote(RuntimeVote.SU_NON_EVENT).setValue(1));
+				context.write(k, new RuntimeVote().setTypeOfVote(RuntimeVote.SU_NON_EVENT).setValue(1));
 		}
 	
 	}
@@ -123,13 +117,13 @@ Mapper<LongWritable, Text, RuntimeKey, RuntimeVote>{
 			context.write(k, new RuntimeVote().setTypeOfVote(RuntimeVote.SU_DISCARD_FILTER).setValue(1));
 		else if(discard.equals("policy")) //TODO check this value
 			context.write(k, new RuntimeVote().setTypeOfVote(RuntimeVote.SU_DISCARD_POLICY).setValue(1));
-		else if(discard.equals("js")) //TODO check this value
+		else if(discard.equals("error")) //javascript error! :)
 			context.write(k, new RuntimeVote().setTypeOfVote(RuntimeVote.SU_DISCARD_JS).setValue(1));
-		else
-			System.err.println("Unknonw discard type: "+discard);
+		else if(!discard.equals("timestamp")) //timestamp stopped being relevant in the end.. 
+			System.err.println("Unknown discard type in servioticy documents: "+discard);
 		return;
 	}
-	private RuntimeKey buildRuntimeKey(JsonNode src,JsonNode dest) 
+	private RuntimeKey buildRuntimeKey(JsonNode src,JsonNode dest) throws Exception 
 	{
 		 RuntimeKey ret = new RuntimeKey();
 		 if(src.has("soid"))
@@ -142,17 +136,44 @@ Mapper<LongWritable, Text, RuntimeKey, RuntimeVote>{
 			 ret.setEntityTypeSource(RuntimeKey.ENTITY_TYPE_WEB_OBJECT);
 			 ret.setEntityIdSource("n");	
 		 }
-		 else{
-			 //service or others...
+		 else if(src.has("service_instance") ){
+			 ret.setEntityTypeSource(RuntimeKey.ENTITY_TYPE_SERVICE);
+			 ret.setEntityIdSource(src.get("service_instance").asText());			 
 		 }
-		 if(dest.has("soid"))
-		 {
+		 else if(src.has("unknown") ){
+			 ret.setEntityTypeSource(RuntimeKey.ENTITY_TYPE_UNKNOWN);
+			 ret.setEntityIdSource(RuntimeKey.ENTITY_TYPE_UNKNOWN);			 
+		 }
+		 else{
+			 throw new Exception("unknwon source key ");//others...
+		 }
+		 
+		 if(dest.has("soid")){
 			 ret.setEntityTypeDestination(RuntimeKey.ENTITY_TYPE_SO_STREAM);
 			 ret.setEntityIdDestination(dest.get("soid").asText()+"#!"+dest.get("streamid").asText());			 
 		 }
-		 else{
-			 //service or others...
+		 else if(dest.has("on_behalf_of")){
+			 ret.setEntityTypeDestination(RuntimeKey.ENTITY_TYPE_USER);
+			 ret.setEntityIdDestination(dest.get("on_behalf_of").asText());			 
 		 }
+		 else if(dest.has("user_id")){
+			 ret.setEntityTypeDestination(RuntimeKey.ENTITY_TYPE_USER);
+			 ret.setEntityIdDestination(dest.get("user_id").asText());
+		 }
+		 else if(dest.has("service_instance")){
+			 ret.setEntityTypeDestination(RuntimeKey.ENTITY_TYPE_SERVICE);
+			 ret.setEntityIdDestination(dest.get("service_instance").asText());
+		 }
+		 else if(dest.has("unknown")){
+			 ret.setEntityTypeDestination(RuntimeKey.ENTITY_TYPE_UNKNOWN);
+			 ret.setEntityIdDestination(RuntimeKey.ENTITY_TYPE_UNKNOWN);
+		 }
+		 else{
+			 throw new Exception("unknwon destination key ");//others...
+		 }
+		
+
+		
 		 return ret;		 
 		
 	}

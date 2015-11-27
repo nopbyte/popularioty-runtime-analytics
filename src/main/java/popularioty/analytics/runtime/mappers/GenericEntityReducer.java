@@ -12,8 +12,8 @@ Reducer<RuntimeKey, RuntimeVote, RuntimeKey, RuntimeEdge>  {
 	
 	protected void reduce(RuntimeKey key, Iterable<RuntimeVote> values, Context context) throws java.io.IOException, InterruptedException 
 	{
-	    RuntimeEdge edge = new RuntimeEdge();
-		for(RuntimeVote v: values)
+		RuntimeEdge edge = new RuntimeEdge();
+	    for(RuntimeVote v: values)
 			edge.merge(v);
 		context.write(key,edge);
 	}
